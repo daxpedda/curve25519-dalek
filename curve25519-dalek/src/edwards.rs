@@ -616,8 +616,20 @@ impl EdwardsPoint {
 
     /// Compress several `EdwardsPoint`s into `CompressedEdwardsY` format, using a batch inversion
     /// for a significant speedup.
+    pub fn compress_batch<const N: usize>(inputs: &[EdwardsPoint; N]) -> [CompressedEdwardsY; N] {
+        let mut zs: [_; N] = core::array::from_fn(|i| inputs[i].Z);
+        FieldElement::invert_batch(&mut zs);
+
+        core::array::from_fn(|i| {
+            let x = &inputs[i].X * &zs[i];
+            let y = &inputs[i].Y * &zs[i];
+            AffinePoint { x, y }.compress()
+        })
+    }
+    /// Compress several `EdwardsPoint`s into `CompressedEdwardsY` format, using a batch inversion
+    /// for a significant speedup.
     #[cfg(feature = "alloc")]
-    pub fn compress_batch(inputs: &[EdwardsPoint]) -> Vec<CompressedEdwardsY> {
+    pub fn compress_batch_alloc(inputs: &[EdwardsPoint]) -> Vec<CompressedEdwardsY> {
         let mut zs = inputs.iter().map(|input| input.Z).collect::<Vec<_>>();
         FieldElement::invert_batch_alloc(&mut zs);
 
@@ -2190,7 +2202,7 @@ mod test {
 
         #[cfg(feature = "alloc")]
         {
-            let compressed = EdwardsPoint::compress_batch(&[EdwardsPoint::identity()]);
+            let compressed = EdwardsPoint::compress_batch_alloc(&[EdwardsPoint::identity()]);
             assert_eq!(&compressed, &[CompressedEdwardsY::identity()]);
         }
     }
@@ -2206,7 +2218,7 @@ mod test {
             .map(|n| constants::ED25519_BASEPOINT_POINT * Scalar::from(n))
             .collect::<Vec<_>>();
         points.extend(core::iter::repeat_with(|| EdwardsPoint::random(&mut rng)).take(100));
-        let compressed = EdwardsPoint::compress_batch(&points);
+        let compressed = EdwardsPoint::compress_batch_alloc(&points);
 
         // Check that the batch-compressed points match the individually compressed ones
         for (point, compressed) in points.iter().zip(&compressed) {

@@ -687,7 +687,7 @@ mod test {
     #[test]
     #[cfg(feature = "alloc")]
     fn invert_batch_empty() {
-        FieldElement::invert_batch(&mut []);
+        FieldElement::invert_batch_alloc(&mut []);
     }
 
     // The following two consts were generated with the following sage script:
